@@ -129,10 +129,10 @@ func (rc refChecker) ReferenceChecker(path string) (schema.FieldValidator, schem
 			id = value
 		}
 
-		_, err = rsc.Get(context.TODO(), id)
-		if err != nil {
-			return nil, err
-		}
+		//_, err = rsc.Get(context.TODO(), id)
+		//if err != nil {
+		//		return nil, err
+		//	}
 		return id, nil
 	}), rsc.Validator()
 }
