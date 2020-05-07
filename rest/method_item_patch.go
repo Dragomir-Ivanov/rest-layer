@@ -99,6 +99,21 @@ func itemPatch(ctx context.Context, r *http.Request, route *RouteMatch) (status 
 		e = NewError(err)
 		return e.Code, nil, e
 	}
+
+	preHookEtag := item.ETag
+	if len(q.Projection) > 0 {
+		projected, err := q.Projection.Eval(ctx, item.Payload, restResource{rsrc})
+		if err != nil {
+			e = NewError(err)
+			return e.Code, nil, e
+		}
+		preHookEtag, err = resource.GenEtag(projected)
+		if err != nil {
+			e = NewError(err)
+			return e.Code, nil, e
+		}
+	}
+
 	// Store the modified document by providing the original doc to instruct
 	// handler to ensure the stored document didn't change between in the
 	// interval. An ErrPreconditionFailed will be thrown in case of race
@@ -109,11 +124,27 @@ func itemPatch(ctx context.Context, r *http.Request, route *RouteMatch) (status 
 		return e.Code, nil, e
 	}
 
+	postHookEtag := item.ETag
 	// Evaluate projection so response gets the same format as read requests.
 	item.Payload, err = q.Projection.Eval(ctx, item.Payload, restResource{rsrc})
 	if err != nil {
 		e = NewError(err)
 		return e.Code, nil, e
 	}
-	return 200, nil, item
+
+	if len(q.Projection) > 0 {
+		postHookEtag, err = resource.GenEtag(item.Payload)
+		if err != nil {
+			e = NewError(err)
+			return e.Code, nil, e
+		}
+	}
+
+	status = 200
+	if isNoContent(r) && preHookEtag == postHookEtag {
+		item.Payload = nil
+		status = 204
+	}
+
+	return status, nil, item
 }

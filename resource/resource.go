@@ -371,7 +371,7 @@ func recalcEtag(items []*Item) error {
 		if v == nil {
 			continue
 		}
-		etag, err := genEtag(v.Payload)
+		etag, err := GenEtag(v.Payload)
 		if err != nil {
 			return err
 		}

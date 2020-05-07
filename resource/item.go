@@ -45,7 +45,7 @@ func NewItem(payload map[string]interface{}) (*Item, error) {
 	if !found {
 		return nil, errors.New("Missing ID field")
 	}
-	etag, err := genEtag(payload)
+	etag, err := GenEtag(payload)
 	if err != nil {
 		return nil, err
 	}

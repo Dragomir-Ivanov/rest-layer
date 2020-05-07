@@ -73,12 +73,6 @@ func (h *Handler) ServeHTTPC(ctx context.Context, w http.ResponseWriter, r *http
 		h.FallbackHandlerFunc(ctx, w, r)
 		return
 	}
-	if r.Method != "HEAD" && body != nil && (status == 200 || status == 201) && isNoContent(r) {
-		skipBody = true
-		if status == 200 {
-			status = 204
-		}
-	}
 	h.sendResponse(ctx, w, status, headers, body, skipBody)
 }
 

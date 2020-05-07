@@ -82,6 +82,20 @@ func itemPut(ctx context.Context, r *http.Request, route *RouteMatch) (status in
 		e = NewError(err)
 		return e.Code, nil, e
 	}
+
+	preHookEtag := item.ETag
+	if len(q.Projection) > 0 {
+		projected, err := q.Projection.Eval(ctx, item.Payload, restResource{rsrc})
+		if err != nil {
+			e = NewError(err)
+			return e.Code, nil, e
+		}
+		preHookEtag, err = resource.GenEtag(projected)
+		if err != nil {
+			e = NewError(err)
+			return e.Code, nil, e
+		}
+	}
 	// If we have an original item, pass it to the handler so we make sure
 	// we are still replacing the same version of the object as handler is
 	// supposed check the original etag before storing when an original object
@@ -97,11 +111,30 @@ func itemPut(ctx context.Context, r *http.Request, route *RouteMatch) (status in
 			return e.Code, nil, e
 		}
 	}
+
+	postHookEtag := item.ETag
 	// Evaluate projection so response gets the same format as read requests.
 	item.Payload, err = q.Projection.Eval(ctx, item.Payload, restResource{rsrc})
 	if err != nil {
 		e = NewError(err)
 		return e.Code, nil, e
 	}
+
+	if len(q.Projection) > 0 {
+		postHookEtag, err = resource.GenEtag(item.Payload)
+		if err != nil {
+			e = NewError(err)
+			return e.Code, nil, e
+		}
+	}
+
+	if isNoContent(r) && preHookEtag == postHookEtag {
+		item.Payload = nil
+		if status == 200 {
+			status = 204
+		}
+		// 201 will be returned as is, but with empty body
+	}
+
 	return status, nil, item
 }

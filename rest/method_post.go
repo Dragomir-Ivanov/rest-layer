@@ -35,11 +35,28 @@ func listPost(ctx context.Context, r *http.Request, route *RouteMatch) (status i
 		e = NewError(err)
 		return e.Code, nil, e
 	}
+
+	preHookEtag := item.ETag
+	if len(q.Projection) > 0 {
+		projected, err := q.Projection.Eval(ctx, item.Payload, restResource{rsrc})
+		if err != nil {
+			e = NewError(err)
+			return e.Code, nil, e
+		}
+		preHookEtag, err = resource.GenEtag(projected)
+		if err != nil {
+			e = NewError(err)
+			return e.Code, nil, e
+		}
+	}
+
 	// TODO: add support for batch insert
 	if err = rsrc.Insert(ctx, []*resource.Item{item}); err != nil {
 		e = NewError(err)
 		return e.Code, nil, e
 	}
+
+	postHookEtag := item.ETag
 	// Evaluate projection so response gets the same format as read requests.
 	item.Payload, err = q.Projection.Eval(ctx, item.Payload, restResource{rsrc})
 	if err != nil {
@@ -57,5 +74,19 @@ func listPost(ctx context.Context, r *http.Request, route *RouteMatch) (status i
 		}
 	}
 	headers.Set("Content-Location", fmt.Sprintf("%s/%s", r.URL.Path, itemID))
-	return 201, headers, item
+
+	if len(q.Projection) > 0 {
+		postHookEtag, err = resource.GenEtag(item.Payload)
+		if err != nil {
+			e = NewError(err)
+			return e.Code, nil, e
+		}
+	}
+
+	status = 201
+	if isNoContent(r) && preHookEtag == postHookEtag {
+		item.Payload = nil
+	}
+
+	return status, headers, item
 }
