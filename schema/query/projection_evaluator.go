@@ -333,7 +333,7 @@ func connectionQuery(pf ProjectionField, field string, id interface{}, validator
 	if v, ok := pf.Params["page"].(int); ok {
 		page = v
 	}
-	limit := 20
+	limit := 200
 	if v, ok := pf.Params["limit"].(int); ok {
 		limit = v
 	}
