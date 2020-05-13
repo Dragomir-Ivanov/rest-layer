@@ -14,8 +14,8 @@ func listDelete(ctx context.Context, r *http.Request, route *RouteMatch) (status
 	}
 	total, err := route.Resource().Clear(ctx, q)
 	if err != nil {
-		e = NewError(err)
-		return e.Code, nil, e
+		e, code := NewError(err)
+		return code, nil, e
 	}
 	headers = http.Header{}
 	headers.Set("X-Total", strconv.Itoa(total))

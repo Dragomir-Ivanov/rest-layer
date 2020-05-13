@@ -36,8 +36,8 @@ func listGet(ctx context.Context, r *http.Request, route *RouteMatch) (status in
 		list, err = rsc.Find(ctx, q)
 	}
 	if err != nil {
-		e = NewError(err)
-		return e.Code, nil, e
+		e, code := NewError(err)
+		return code, nil, e
 	}
 	if win := q.Window; win != nil && win.Offset > 0 {
 		list.Offset = win.Offset
@@ -45,8 +45,8 @@ func listGet(ctx context.Context, r *http.Request, route *RouteMatch) (status in
 	for _, item := range list.Items {
 		item.Payload, err = q.Projection.Eval(ctx, item.Payload, restResource{rsc})
 		if err != nil {
-			e = NewError(err)
-			return e.Code, nil, e
+			e, code := NewError(err)
+			return code, nil, e
 		}
 	}
 	return 200, nil, list

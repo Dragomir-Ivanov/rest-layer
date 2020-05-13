@@ -48,8 +48,8 @@ func itemPatch(ctx context.Context, r *http.Request, route *RouteMatch) (status 
 	q.Window = &query.Window{Limit: 1}
 	if l, err := rsrc.Find(ctx, q); err != nil {
 		// If item can't be fetch, return an error.
-		e = NewError(err)
-		return e.Code, nil, e
+		e, code := NewError(err)
+		return code, nil, e
 	} else if len(l.Items) == 0 {
 		return ErrNotFound.Code, nil, ErrNotFound
 	} else {
@@ -96,21 +96,21 @@ func itemPatch(ctx context.Context, r *http.Request, route *RouteMatch) (status 
 	}
 	item, err := resource.NewItem(doc)
 	if err != nil {
-		e = NewError(err)
-		return e.Code, nil, e
+		e, code := NewError(err)
+		return code, nil, e
 	}
 
 	preHookEtag := item.ETag
 	if len(q.Projection) > 0 {
 		projected, err := q.Projection.Eval(ctx, item.Payload, restResource{rsrc})
 		if err != nil {
-			e = NewError(err)
-			return e.Code, nil, e
+			e, code := NewError(err)
+			return code, nil, e
 		}
 		preHookEtag, err = resource.GenEtag(projected)
 		if err != nil {
-			e = NewError(err)
-			return e.Code, nil, e
+			e, code := NewError(err)
+			return code, nil, e
 		}
 	}
 
@@ -120,23 +120,23 @@ func itemPatch(ctx context.Context, r *http.Request, route *RouteMatch) (status 
 	// condition (i.e.: another thread modified the document between the Find()
 	// and the Store()).
 	if err = rsrc.Update(ctx, item, original); err != nil {
-		e = NewError(err)
-		return e.Code, nil, e
+		e, code := NewError(err)
+		return code, nil, e
 	}
 
 	postHookEtag := item.ETag
 	// Evaluate projection so response gets the same format as read requests.
 	item.Payload, err = q.Projection.Eval(ctx, item.Payload, restResource{rsrc})
 	if err != nil {
-		e = NewError(err)
-		return e.Code, nil, e
+		e, code := NewError(err)
+		return code, nil, e
 	}
 
 	if len(q.Projection) > 0 {
 		postHookEtag, err = resource.GenEtag(item.Payload)
 		if err != nil {
-			e = NewError(err)
-			return e.Code, nil, e
+			e, code := NewError(err)
+			return code, nil, e
 		}
 	}
 

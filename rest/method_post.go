@@ -32,36 +32,36 @@ func listPost(ctx context.Context, r *http.Request, route *RouteMatch) (status i
 	}
 	item, err := resource.NewItem(doc)
 	if err != nil {
-		e = NewError(err)
-		return e.Code, nil, e
+		e, code := NewError(err)
+		return code, nil, e
 	}
 
 	preHookEtag := item.ETag
 	if len(q.Projection) > 0 {
 		projected, err := q.Projection.Eval(ctx, item.Payload, restResource{rsrc})
 		if err != nil {
-			e = NewError(err)
-			return e.Code, nil, e
+			e, code := NewError(err)
+			return code, nil, e
 		}
 		preHookEtag, err = resource.GenEtag(projected)
 		if err != nil {
-			e = NewError(err)
-			return e.Code, nil, e
+			e, code := NewError(err)
+			return code, nil, e
 		}
 	}
 
 	// TODO: add support for batch insert
 	if err = rsrc.Insert(ctx, []*resource.Item{item}); err != nil {
-		e = NewError(err)
-		return e.Code, nil, e
+		e, code := NewError(err)
+		return code, nil, e
 	}
 
 	postHookEtag := item.ETag
 	// Evaluate projection so response gets the same format as read requests.
 	item.Payload, err = q.Projection.Eval(ctx, item.Payload, restResource{rsrc})
 	if err != nil {
-		e = NewError(err)
-		return e.Code, nil, e
+		e, code := NewError(err)
+		return code, nil, e
 	}
 	// See https://www.subbu.org/blog/2008/10/location-vs-content-location
 	headers = http.Header{}
@@ -78,8 +78,8 @@ func listPost(ctx context.Context, r *http.Request, route *RouteMatch) (status i
 	if len(q.Projection) > 0 {
 		postHookEtag, err = resource.GenEtag(item.Payload)
 		if err != nil {
-			e = NewError(err)
-			return e.Code, nil, e
+			e, code := NewError(err)
+			return code, nil, e
 		}
 	}
 

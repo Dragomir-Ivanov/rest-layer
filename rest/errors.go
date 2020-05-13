@@ -47,29 +47,29 @@ type Error struct {
 // NewError returns a rest.Error from an standard error.
 //
 // If the the inputted error is recognized, the appropriate rest.Error is mapped.
-func NewError(err error) *Error {
+func NewError(err error) (error, int) {
 	if Err, ok := err.(*Error); ok {
-		return Err
+		return err, Err.Code
 	}
 	switch err {
 	case context.Canceled:
-		return ErrClientClosedRequest
+		return ErrClientClosedRequest, ErrClientClosedRequest.Code
 	case context.DeadlineExceeded:
-		return ErrGatewayTimeout
+		return ErrGatewayTimeout, ErrGatewayTimeout.Code
 	case resource.ErrNotFound:
-		return ErrNotFound
+		return ErrNotFound, ErrNotFound.Code
 	case resource.ErrForbidden:
-		return ErrForbidden
+		return ErrForbidden, ErrForbidden.Code
 	case resource.ErrConflict:
-		return ErrConflict
+		return ErrConflict, ErrConflict.Code
 	case resource.ErrNotImplemented:
-		return ErrNotImplemented
+		return ErrNotImplemented, ErrNotImplemented.Code
 	case resource.ErrNoStorage:
-		return &Error{501, err.Error(), nil}
+		return &Error{501, err.Error(), nil}, 501
 	case nil:
-		return nil
+		return nil, 0
 	default:
-		return &Error{520, err.Error(), nil}
+		return err, 520
 	}
 }
 

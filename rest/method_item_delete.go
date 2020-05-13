@@ -16,8 +16,8 @@ func itemDelete(ctx context.Context, r *http.Request, route *RouteMatch) (status
 	q.Window = &query.Window{Limit: 1}
 	l, err := route.Resource().Find(ctx, q)
 	if err != nil {
-		e = NewError(err)
-		return e.Code, nil, e
+		e, code := NewError(err)
+		return code, nil, e
 	}
 	if len(l.Items) == 0 {
 		return ErrNotFound.Code, nil, ErrNotFound
@@ -28,8 +28,8 @@ func itemDelete(ctx context.Context, r *http.Request, route *RouteMatch) (status
 		return err.Code, nil, err
 	}
 	if err := route.Resource().Delete(ctx, original); err != nil {
-		e = NewError(err)
-		return e.Code, nil, e
+		e, code := NewError(err)
+		return code, nil, e
 	}
 	return 204, nil, nil
 }

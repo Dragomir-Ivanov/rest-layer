@@ -18,8 +18,8 @@ func itemGet(ctx context.Context, r *http.Request, route *RouteMatch) (status in
 	q.Window = &query.Window{Limit: 1}
 	list, err := rsrc.Find(ctx, q)
 	if err != nil {
-		e = NewError(err)
-		return e.Code, nil, e
+		e, code := NewError(err)
+		return code, nil, e
 	} else if len(list.Items) == 0 {
 		return ErrNotFound.Code, nil, ErrNotFound
 	}
@@ -40,8 +40,8 @@ func itemGet(ctx context.Context, r *http.Request, route *RouteMatch) (status in
 	}
 	item.Payload, err = q.Projection.Eval(ctx, item.Payload, restResource{rsrc})
 	if err != nil {
-		e = NewError(err)
-		return e.Code, nil, e
+		e, code := NewError(err)
+		return code, nil, e
 	}
 	return 200, nil, item
 }
