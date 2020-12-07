@@ -141,7 +141,7 @@ func compareEtag(etag, baseEtag string) bool {
 func decodePayload(r *http.Request, payload *map[string]interface{}) *Error {
 	// Check content-type, if not specified, assume it's JSON and fail later
 	if ct := r.Header.Get("Content-Type"); ct != "" && strings.TrimSpace(strings.SplitN(ct, ";", 2)[0]) != "application/json" {
-		return &Error{501, fmt.Sprintf("Invalid Content-Type header: `%s' not supported", ct), nil}
+		return &Error{Code: 501, Message: fmt.Sprintf("Invalid Content-Type header: `%s' not supported", ct)}
 	}
 	if r.Body == nil {
 		return nil
@@ -149,7 +149,7 @@ func decodePayload(r *http.Request, payload *map[string]interface{}) *Error {
 	decoder := json.NewDecoder(r.Body)
 	defer r.Body.Close()
 	if err := decoder.Decode(payload); err != nil {
-		return &Error{400, fmt.Sprintf("Malformed body: %v", err), nil}
+		return &Error{Code: 400, Message: fmt.Sprintf("Malformed body: %v", err)}
 	}
 	return nil
 }
@@ -169,7 +169,7 @@ func checkIntegrityRequest(r *http.Request, original *resource.Item) *Error {
 		}
 		if ifUnmod != "" {
 			if ifUnmodTime, err := time.Parse(time.RFC1123, ifUnmod); err != nil {
-				return &Error{400, "Invalid If-Unmodified-Since header", nil}
+				return &Error{Code: 400, Message: "Invalid If-Unmodified-Since header"}
 			} else if original.Updated.Truncate(time.Second).After(ifUnmodTime) {
 				// Item's update time is truncated to the second because RFC1123 doesn't support more
 				return ErrPreconditionFailed

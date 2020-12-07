@@ -41,7 +41,7 @@ var routePool = sync.Pool{
 	},
 }
 
-var errResourceNotFound = &Error{http.StatusNotFound, "Resource Not Found", nil}
+var errResourceNotFound = &Error{Code: http.StatusNotFound, Message: "Resource Not Found"}
 
 func contextWithRoute(ctx context.Context, route *RouteMatch) context.Context {
 	return context.WithValue(ctx, routeKey, route)
@@ -182,7 +182,7 @@ func (r *RouteMatch) ResourceID() interface{} {
 func (r *RouteMatch) Query() (*query.Query, *Error) {
 	qp := queryParser{rsc: r.Resource()}
 	if qp.rsc == nil {
-		return nil, &Error{500, "missing resource", nil}
+		return nil, &Error{Code: 500, Message: "missing resource"}
 	}
 
 	// Append route fields to the query
@@ -230,7 +230,7 @@ type queryParser struct {
 
 func (qp *queryParser) results() (*query.Query, *Error) {
 	if len(qp.issues) > 0 {
-		return nil, &Error{422, "URL parameters contain error(s)", qp.issues}
+		return nil, &Error{Code: 422, Message: "URL parameters contain error(s)", Issues: qp.issues}
 	}
 	return &qp.q, nil
 }

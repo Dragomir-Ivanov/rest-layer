@@ -64,19 +64,19 @@ func itemPatch(ctx context.Context, r *http.Request, route *RouteMatch) (status 
 		// Recreate the new document
 		originalJSON, err := json.Marshal(original.Payload)
 		if err != nil {
-			return 422, nil, &Error{422, err.Error(), nil}
+			return 422, nil, &Error{Code: 422, Err: err}
 		}
 		patch, err := jsonpatch.DecodePatch(patchJSON)
 		if err != nil {
-			return 400, nil, &Error{400, "Malformed patch document: " + err.Error(), nil}
+			return 400, nil, &Error{Code: 400, Message: "Malformed patch document", Err: err}
 		}
 		payloadJSON, err := patch.Apply(originalJSON)
 		if err != nil {
-			return 422, nil, &Error{422, err.Error(), nil}
+			return 422, nil, &Error{Code: 422, Err: err}
 		}
 		err = json.Unmarshal(payloadJSON, &payload)
 		if err != nil {
-			return 422, nil, &Error{422, err.Error(), nil}
+			return 422, nil, &Error{Code: 422, Err: err}
 		}
 	}
 
@@ -89,10 +89,10 @@ func itemPatch(ctx context.Context, r *http.Request, route *RouteMatch) (status 
 	}
 	doc, errs := rsrc.Validator().Validate(changes, base)
 	if len(errs) > 0 {
-		return 422, nil, &Error{422, "Document contains error(s)", errs}
+		return 422, nil, &Error{Code: 422, Message: "Document contains error(s)", Issues: errs}
 	}
 	if id, found := doc["id"]; found && id != original.ID {
-		return 422, nil, &Error{422, "Cannot change document ID", nil}
+		return 422, nil, &Error{Code: 422, Message: "Cannot change document ID"}
 	}
 	item, err := resource.NewItem(doc)
 	if err != nil {

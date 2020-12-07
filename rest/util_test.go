@@ -184,7 +184,7 @@ func TestRequestDecodePayloadWrongContentType(t *testing.T) {
 	}
 	var p map[string]interface{}
 	err := decodePayload(r, &p)
-	assert.Equal(t, &Error{501, "Invalid Content-Type header: `text/plain' not supported", nil}, err)
+	assert.Equal(t, &Error{Code: 501, Message: "Invalid Content-Type header: `text/plain' not supported"}, err)
 }
 
 func TestRequestDecodePayloadInvalidJSON(t *testing.T) {
@@ -193,14 +193,14 @@ func TestRequestDecodePayloadInvalidJSON(t *testing.T) {
 	}
 	var p map[string]interface{}
 	err := decodePayload(r, &p)
-	assert.Equal(t, &Error{400, "Malformed body: unexpected EOF", nil}, err)
+	assert.Equal(t, &Error{Code: 400, Message: "Malformed body: unexpected EOF"}, err)
 }
 
 func TestRequestCheckIntegrityRequestBadDate(t *testing.T) {
 	r, _ := http.NewRequest("GET", "/", nil)
 	r.Header.Set("If-Unmodified-Since", "invalid date")
 	err := checkIntegrityRequest(r, &resource.Item{})
-	assert.Equal(t, &Error{400, "Invalid If-Unmodified-Since header", nil}, err)
+	assert.Equal(t, &Error{Code: 400, Message: "Invalid If-Unmodified-Since header"}, err)
 }
 
 func TestRequestCheckIntegrityRequestNoItem(t *testing.T) {

@@ -42,7 +42,7 @@ func itemPut(ctx context.Context, r *http.Request, route *RouteMatch) (status in
 	}
 	if !rsrc.Conf().IsModeAllowed(mode) {
 		status := http.StatusMethodNotAllowed
-		return status, nil, &Error{status, http.StatusText(status), nil}
+		return status, nil, &Error{Code: status, Message: http.StatusText(status)}
 	}
 	// If-Match / If-Unmodified-Since handling.
 	if err := checkIntegrityRequest(r, original); err != nil {
@@ -70,11 +70,11 @@ func itemPut(ctx context.Context, r *http.Request, route *RouteMatch) (status in
 	}
 	doc, errs := rsrc.Validator().Validate(changes, base)
 	if len(errs) > 0 {
-		return 422, nil, &Error{422, "Document contains error(s)", errs}
+		return 422, nil, &Error{Code: 422, Message: "Document contains error(s)", Issues: errs}
 	}
 	if original != nil {
 		if id, found := doc["id"]; found && id != original.ID {
-			return 422, nil, &Error{422, "Cannot change document ID", nil}
+			return 422, nil, &Error{Code: 422, Message: "Cannot change document ID"}
 		}
 	}
 	item, err := resource.NewItem(doc)

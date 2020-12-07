@@ -17,11 +17,11 @@ func TestNewError(t *testing.T) {
 	assert.Equal(t, ErrConflict, NewError(resource.ErrConflict))
 	assert.Equal(t, ErrNotImplemented, NewError(resource.ErrNotImplemented))
 	assert.Nil(t, NewError(nil))
-	assert.Equal(t, &Error{520, "test", nil}, NewError(errors.New("test")))
+	assert.Equal(t, &Error{Code: 520, Err: errors.New("test")}, NewError(errors.New("test")))
 	assert.Equal(t, ErrNotFound, NewError(ErrNotFound))
 }
 
 func TestError(t *testing.T) {
-	e := &Error{123, "message", nil}
+	e := &Error{Code: 123, Message: "message"}
 	assert.Equal(t, "message", e.Error())
 }

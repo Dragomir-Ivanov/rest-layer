@@ -255,8 +255,8 @@ func TestGetListFieldHandler(t *testing.T) {
 				r.Header.Set("Prefer", "return=minimal")
 				return r, err
 			},
-			ResponseCode:   204,
-			ResponseBody:   ``,
+			ResponseCode:   200,
+			ResponseBody:   `[{"foo": "bar"}]`,
 			ResponseHeader: http.Header{"Etag": []string{`W/"d41d8cd98f00b204e9800998ecf8427e"`}},
 		},
 		`fields:foo(bar:baz)`: {

@@ -31,7 +31,7 @@ func itemGet(ctx context.Context, r *http.Request, route *RouteMatch) (status in
 	// Handle conditional request: If-Modified-Since.
 	if r.Header.Get("If-Modified-Since") != "" {
 		if ifModTime, err := time.Parse(time.RFC1123, r.Header.Get("If-Modified-Since")); err != nil {
-			return 400, nil, &Error{400, "Invalid If-Modified-Since header", nil}
+			return 400, nil, &Error{Code: 400, Message: "Invalid If-Modified-Since header"}
 		} else if u := item.Updated.Truncate(time.Second); u.Equal(ifModTime) || u.Before(ifModTime) {
 			// Item's update time is truncated to the second because RFC1123
 			// doesn't support more.

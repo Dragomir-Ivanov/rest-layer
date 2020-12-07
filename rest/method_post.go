@@ -28,7 +28,7 @@ func listPost(ctx context.Context, r *http.Request, route *RouteMatch) (status i
 	}
 	doc, errs := rsrc.Validator().Validate(changes, base)
 	if len(errs) > 0 {
-		return 422, nil, &Error{422, "Document contains error(s)", errs}
+		return 422, nil, &Error{Code: 422, Message: "Document contains error(s)", Issues: errs}
 	}
 	item, err := resource.NewItem(doc)
 	if err != nil {

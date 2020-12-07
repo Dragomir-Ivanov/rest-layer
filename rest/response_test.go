@@ -147,7 +147,7 @@ func TestDefaultResponseFormatterFormatError(t *testing.T) {
 	assert.Equal(t, rctx, ctx)
 	assert.Equal(t, map[string]interface{}{"message": "Not Found", "code": 404}, payload)
 
-	rctx, payload = rf.FormatError(ctx, h, &Error{123, "test", map[string][]interface{}{"field": {"error"}}}, false)
+	rctx, payload = rf.FormatError(ctx, h, &Error{Code: 123, Message: "test", Issues: map[string][]interface{}{"field": {"error"}}}, false)
 	assert.Equal(t, http.Header{}, h)
 	assert.Equal(t, rctx, ctx)
 	assert.Equal(t, map[string]interface{}{"code": 123, "message": "test", "issues": map[string][]interface{}{"field": {"error"}}}, payload)

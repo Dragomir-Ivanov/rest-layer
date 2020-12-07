@@ -21,7 +21,7 @@ func listGet(ctx context.Context, r *http.Request, route *RouteMatch) (status in
 		forceTotal = true
 	case resource.TotalDenied:
 		if route.Params.Get("total") == "1" {
-			return 422, nil, &Error{422, "Cannot use `total' parameter: denied by configuration", nil}
+			return 422, nil, &Error{Code: 422, Message: "Cannot use `total' parameter: denied by configuration"}
 		}
 	}
 	q, e := route.Query()

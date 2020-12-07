@@ -9,28 +9,28 @@ import (
 
 var (
 	// ErrNotFound represents a 404 HTTP error.
-	ErrNotFound = &Error{http.StatusNotFound, "Not Found", nil}
+	ErrNotFound = &Error{Code: http.StatusNotFound}
 	// ErrForbidden represents a 403 HTTP error.
-	ErrForbidden = &Error{http.StatusForbidden, "Forbidden", nil}
+	ErrForbidden = &Error{Code: http.StatusForbidden}
 	// ErrPreconditionFailed happens when a conditional request condition is not met.
-	ErrPreconditionFailed = &Error{http.StatusPreconditionFailed, "Precondition Failed", nil}
+	ErrPreconditionFailed = &Error{Code: http.StatusPreconditionFailed, Message: "Precondition Failed"}
 	// ErrConflict happens when another thread or node modified the data
 	// concurrently with our own thread in such a way we can't securely apply
 	// the requested changes.
-	ErrConflict = &Error{http.StatusConflict, "Conflict", nil}
+	ErrConflict = &Error{Code: http.StatusConflict}
 	// ErrInvalidMethod happens when the used HTTP method is not supported for
 	// this resource.
-	ErrInvalidMethod = &Error{http.StatusMethodNotAllowed, "Invalid Method", nil}
+	ErrInvalidMethod = &Error{Code: http.StatusMethodNotAllowed, Message: "Invalid Method"}
 	// ErrClientClosedRequest is returned when the client closed the connection
 	// before the server was able to finish processing the request.
-	ErrClientClosedRequest = &Error{499, "Client Closed Request", nil}
+	ErrClientClosedRequest = &Error{Code: 499, Message: "Client Closed Request"}
 	// ErrNotImplemented happens when a requested feature is not implemented.
-	ErrNotImplemented = &Error{http.StatusNotImplemented, "Not Implemented", nil}
+	ErrNotImplemented = &Error{Code: http.StatusNotImplemented}
 	// ErrGatewayTimeout is returned when the specified timeout for the request
 	// has been reached before the server was able to process it.
-	ErrGatewayTimeout = &Error{http.StatusGatewayTimeout, "Deadline Exceeded", nil}
+	ErrGatewayTimeout = &Error{Code: http.StatusGatewayTimeout, Message: "Deadline Exceeded"}
 	// ErrUnknown is thrown when the origin of the error can't be identified.
-	ErrUnknown = &Error{520, "Unknown Error", nil}
+	ErrUnknown = &Error{Code: 520, Message: "Unknown Error"}
 )
 
 // Error defines a REST error with optional per fields error details.
@@ -42,38 +42,57 @@ type Error struct {
 	Message string
 	// Issues holds per fields errors if any.
 	Issues map[string][]interface{}
+	// Wrapped original error
+	Err error
 }
 
 // NewError returns a rest.Error from an standard error.
 //
 // If the the inputted error is recognized, the appropriate rest.Error is mapped.
 func NewError(err error) *Error {
-	if Err, ok := err.(*Error); ok {
-		return Err
+	if err == nil {
+		return nil
+	}
+	e, ok := err.(*Error)
+	if ok {
+		return e
 	}
 	switch err {
 	case context.Canceled:
-		return ErrClientClosedRequest
+		e = ErrClientClosedRequest
 	case context.DeadlineExceeded:
-		return ErrGatewayTimeout
+		e = ErrGatewayTimeout
 	case resource.ErrNotFound:
-		return ErrNotFound
+		e = ErrNotFound
 	case resource.ErrForbidden:
-		return ErrForbidden
+		e = ErrForbidden
 	case resource.ErrConflict:
-		return ErrConflict
+		e = ErrConflict
 	case resource.ErrNotImplemented:
-		return ErrNotImplemented
+		e = ErrNotImplemented
 	case resource.ErrNoStorage:
-		return &Error{501, err.Error(), nil}
-	case nil:
-		return nil
+		e = &Error{Code: 501}
 	default:
-		return &Error{520, err.Error(), nil}
+		e = &Error{Code: 520}
 	}
+	//Wrap the original error
+	e.Err = err
+
+	return e
 }
 
 // Error returns the error as string
 func (e *Error) Error() string {
-	return e.Message
+	txt := e.Message
+	if e.Err != nil {
+		if len(txt) > 0 {
+			txt += ": "
+		}
+		txt += e.Err.Error()
+	}
+	return txt
+}
+
+func (e *Error) Unwrap() error {
+	return e.Err
 }

@@ -185,7 +185,7 @@ func TestFindRoute(t *testing.T) {
 
 	route = newRoute("GET")
 	err = findRoute("/foo/1234/bar/baz/baz", index, route)
-	assert.Equal(t, &Error{404, "Resource Not Found", nil}, err)
+	assert.Equal(t, &Error{Code: 404, Message: "Resource Not Found"}, err)
 	assert.Nil(t, route.Resource())
 	assert.Nil(t, route.ResourceID())
 }
@@ -220,7 +220,7 @@ func TestRoutePathParentsExists(t *testing.T) {
 	err = findRoute("/foo/1234/bar", index, route)
 	if assert.NoError(t, err) {
 		err = route.ResourcePath.ParentsExist(ctx)
-		assert.Equal(t, &Error{404, "Parent Resource Not Found", nil}, err)
+		assert.Equal(t, &Error{Code: 404, Message: "Parent Resource Not Found"}, err)
 	}
 
 	route = newRoute("GET")
@@ -247,7 +247,7 @@ func TestRoutePathParentsNotExists(t *testing.T) {
 	err := findRoute("/foo/4321/bar/1234", index, route)
 	if assert.NoError(t, err) {
 		err := route.ResourcePath.ParentsExist(ctx)
-		assert.Equal(t, &Error{404, "Parent Resource Not Found", nil}, err)
+		assert.Equal(t, &Error{Code: 404, Message: "Parent Resource Not Found"}, err)
 	}
 }
 

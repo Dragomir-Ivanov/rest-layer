@@ -91,7 +91,7 @@ func (p ResourcePath) ParentsExist(ctx context.Context) error {
 	fields := map[string]interface{}{}
 	for _, rp := range p {
 		if val, found := fields[rp.Field]; found && val != rp.Value {
-			return &Error{404, "Resource Path Conflict", nil}
+			return &Error{Code: 404, Message: "Resource Path Conflict"}
 		}
 		fields[rp.Field] = rp.Value
 	}
@@ -123,7 +123,7 @@ func (p ResourcePath) ParentsExist(ctx context.Context) error {
 			if err != nil {
 				c <- err
 			} else if len(list.Items) == 0 {
-				c <- &Error{404, "Parent Resource Not Found", nil}
+				c <- &Error{Code: 404, Message: "Parent Resource Not Found"}
 			} else {
 				c <- nil
 			}
