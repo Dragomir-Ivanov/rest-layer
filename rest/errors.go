@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/rs/rest-layer/resource"
@@ -48,7 +49,8 @@ type Error struct {
 //
 // If the the inputted error is recognized, the appropriate rest.Error is mapped.
 func NewError(err error) (error, int) {
-	if Err, ok := err.(*Error); ok {
+	var Err *Error
+	if errors.As(err, &Err) {
 		return err, Err.Code
 	}
 	switch err {
