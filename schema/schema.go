@@ -239,11 +239,11 @@ func (s Schema) validate(changes map[string]interface{}, base map[string]interfa
 		}
 		// Check required fields.
 		if def.Required {
-			if value, found := changes[field]; !found || value == nil || value == Tombstone {
+			if value, found := changes[field]; !found || value == Tombstone {
 				if found {
-					// If explicitly set to null, raise the required error.
+					// If explicitly removed, raise the required error.
 					addFieldError(errs, field, "required")
-				} else if value, found = base[field]; !found || value == nil {
+				} else if _, found = base[field]; !found {
 					// If field was omitted and isn't set by a Default of a hook, raise.
 					addFieldError(errs, field, "required")
 				}

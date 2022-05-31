@@ -723,3 +723,91 @@ func TestJSONPatchItem(t *testing.T) {
 		t.Run(n, tc.Test)
 	}
 }
+
+func TestPatchItemNullable(t *testing.T) {
+	now := time.Now()
+
+	sharedInit := func() *requestTestVars {
+		s1 := mem.NewHandler()
+		s1.Insert(context.Background(), []*resource.Item{
+			{ID: "1", ETag: "a", Updated: now, Payload: map[string]interface{}{"id": "1", "nullableFoo": "a", "nullFoo": nil}},
+		})
+
+		idx := resource.NewIndex()
+		idx.Bind("foo", schema.Schema{
+			Fields: schema.Fields{
+				"id":          {Sortable: true, Filterable: true},
+				"nullableFoo": {Required: true, Validator: &schema.AnyOf{&schema.String{}, &schema.Null{}}},
+				"nullFoo":     {Required: true, Validator: &schema.AnyOf{&schema.String{}, &schema.Null{}}},
+			},
+		}, s1, resource.DefaultConf)
+
+		return &requestTestVars{
+			Index:   idx,
+			Storers: map[string]resource.Storer{"foo": s1},
+		}
+	}
+
+	tests := map[string]requestTest{
+		`update nullable field, string`: {
+			Init: sharedInit,
+			NewRequest: func() (*http.Request, error) {
+				body := bytes.NewReader([]byte(`[
+					{
+						"op": "replace",
+						"path": "/nullFoo",
+						"value": "bar"
+					}
+				]`))
+				r, err := http.NewRequest("PATCH", "/foo/1", body)
+				r.Header.Set("Content-Type", "application/json-patch+json")
+				return r, err
+			},
+			ResponseCode:   http.StatusOK,
+			ResponseBody:   `{"id":"1","nullableFoo":"a","nullFoo": "bar"}`,
+			ResponseHeader: http.Header{"Etag": []string{`W/"6c60dd27da4fd4c01d7bb79e79806557"`}},
+			ExtraTest:      checkPayload("foo", "1", map[string]interface{}{"id": "1", "nullableFoo": "a", "nullFoo": "bar"}),
+		},
+		`update nullable field, null`: {
+			Init: sharedInit,
+			NewRequest: func() (*http.Request, error) {
+				body := bytes.NewReader([]byte(`[
+					{
+						"op": "replace",
+						"path": "/nullableFoo",
+						"value": null
+					}
+				]`))
+				r, err := http.NewRequest("PATCH", "/foo/1", body)
+				r.Header.Set("Content-Type", "application/json-patch+json")
+				return r, err
+			},
+			ResponseCode:   http.StatusOK,
+			ResponseBody:   `{"id":"1","nullableFoo":null,"nullFoo": null}`,
+			ResponseHeader: http.Header{"Etag": []string{`W/"ceca049ed87e3dd8a324264f996a75ce"`}},
+			ExtraTest:      checkPayload("foo", "1", map[string]interface{}{"id": "1", "nullableFoo": nil, "nullFoo": nil}),
+		},
+		`remove required nullable field`: {
+			Init: sharedInit,
+			NewRequest: func() (*http.Request, error) {
+				body := bytes.NewReader([]byte(`[
+					{
+						"op": "remove",
+						"path": "/nullableFoo"
+					}
+				]`))
+				r, err := http.NewRequest("PATCH", "/foo/1", body)
+				r.Header.Set("Content-Type", "application/json-patch+json")
+				return r, err
+			},
+			ResponseCode: http.StatusUnprocessableEntity,
+			ResponseBody: `{"code":422,"issues":{"nullableFoo":["required"]},"message":"Document contains error(s)"}`,
+			ExtraTest:    checkPayload("foo", "1", map[string]interface{}{"id": "1", "nullableFoo": "a", "nullFoo": nil}),
+		},
+	}
+
+	for n, tc := range tests {
+		tc := tc // capture range variable
+		t.Run(n, tc.Test)
+	}
+}
