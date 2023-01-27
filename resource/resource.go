@@ -23,6 +23,7 @@ type Resource struct {
 	resources   subResources
 	aliases     map[string]url.Values
 	hooks       eventHandler
+	middlewares middlewareHandlers
 }
 
 type subResources []*Resource
@@ -69,7 +70,7 @@ func (v validatorFallback) GetField(name string) *schema.Field {
 
 // newResource creates a new resource with provided spec, handler and config.
 func newResource(name string, s schema.Schema, h Storer, c Conf) *Resource {
-	return &Resource{
+	r := &Resource{
 		name:   name,
 		path:   name,
 		schema: s,
@@ -82,6 +83,8 @@ func newResource(name string, s schema.Schema, h Storer, c Conf) *Resource {
 		resources: subResources{},
 		aliases:   map[string]url.Values{},
 	}
+	initMiddlewares(r)
+	return r
 }
 
 // Name returns the name of the resource
@@ -124,10 +127,10 @@ func (r *Resource) Compile(rc schema.ReferenceChecker) error {
 // Bind a sub-resource with the provided name. The field parameter defines the parent
 // resource's which contains the sub resource id.
 //
-//     users := api.Bind("users", userSchema, userHandler, userConf)
-//     // Bind a sub resource on /users/:user_id/posts[/:post_id]
-//     // and reference the user on each post using the "user" field.
-//     posts := users.Bind("posts", "user", postSchema, postHandler, postConf)
+//	users := api.Bind("users", userSchema, userHandler, userConf)
+//	// Bind a sub resource on /users/:user_id/posts[/:post_id]
+//	// and reference the user on each post using the "user" field.
+//	posts := users.Bind("posts", "user", postSchema, postHandler, postConf)
 //
 // This method will panic an alias or a resource with the same name is already bound
 // or if the specified field doesn't exist in the parent resource spec.
@@ -186,9 +189,9 @@ func (r *Resource) GetResources() []*Resource {
 
 // Alias adds an pre-built resource query on /<resource>/<alias>.
 //
-//     // Add a friendly alias to public posts on /users/:user_id/posts/public
-//     // (equivalent to /users/:user_id/posts?filter={"public":true})
-//     posts.Alias("public", url.Values{"where": []string{"{\"public\":true}"}})
+//	// Add a friendly alias to public posts on /users/:user_id/posts/public
+//	// (equivalent to /users/:user_id/posts?filter={"public":true})
+//	posts.Alias("public", url.Values{"where": []string{"{\"public\":true}"}})
 //
 // This method will panic an alias or a resource with the same name is already bound.
 func (r *Resource) Alias(name string, v url.Values) {
@@ -244,10 +247,7 @@ func (r *Resource) Get(ctx context.Context, id interface{}) (item *Item, err err
 			})
 		}(time.Now())
 	}
-	if err = r.hooks.onGet(ctx, id); err == nil {
-		item, err = r.storage.Get(ctx, id)
-	}
-	r.hooks.onGot(ctx, &item, &err)
+	item, err = r.middlewares.onGetThen(ctx, id)
 	return
 }
 
@@ -263,43 +263,7 @@ func (r *Resource) MultiGet(ctx context.Context, ids []interface{}) (items []*It
 			})
 		}(time.Now())
 	}
-	errs := make([]error, len(ids))
-	for i, id := range ids {
-		errs[i] = r.hooks.onGet(ctx, id)
-		if err == nil && errs[i] != nil {
-			// first pre-hook error is the global error.
-			err = errs[i]
-		}
-	}
-	// Perform the storage request if none of the pre-hook returned an err.
-	if err == nil {
-		items, err = r.storage.MultiGet(ctx, ids)
-	}
-	var errOverwrite error
-	for i := range ids {
-		var _item *Item
-		if len(items) > i {
-			_item = items[i]
-		}
-		// Give the pre-hook error for this id or global otherwise.
-		_err := errs[i]
-		if _err == nil {
-			_err = err
-		}
-		r.hooks.onGot(ctx, &_item, &_err)
-		if errOverwrite == nil && _err != errs[i] {
-			errOverwrite = _err // apply change done on the first error.
-		}
-		if _err == nil && len(items) > i && _item != items[i] {
-			items[i] = _item // apply changes done by hooks if any.
-		}
-	}
-	if errOverwrite != nil {
-		err = errOverwrite
-	}
-	if err != nil {
-		items = nil
-	}
+	items, err = r.middlewares.onMultiGetThen(ctx, ids)
 	return
 }
 
@@ -331,15 +295,7 @@ func (r *Resource) find(ctx context.Context, q *query.Query, forceTotal bool) (l
 			})
 		}(time.Now())
 	}
-	if err = r.hooks.onFind(ctx, q); err == nil {
-		list, err = r.storage.Find(ctx, q)
-		if err == nil && list.Total == -1 && forceTotal {
-			// Send a query with no window so the storage won't be tempted to
-			// count within the window.
-			list.Total, err = r.storage.Count(ctx, &query.Query{Predicate: q.Predicate})
-		}
-	}
-	r.hooks.onFound(ctx, q, &list, &err)
+	list, err = r.middlewares.onFindThen(ctx, q, forceTotal)
 	return
 }
 
@@ -353,12 +309,11 @@ func (r *Resource) Insert(ctx context.Context, items []*Item) (err error) {
 			})
 		}(time.Now())
 	}
-	if err = r.hooks.onInsert(ctx, items); err == nil {
-		if err = recalcEtag(items); err == nil {
-			err = r.storage.Insert(ctx, items)
-		}
+	var newItems []*Item
+	newItems, err = r.middlewares.onInsertThen(ctx, items)
+	if err == nil {
+		copy(items, newItems)
 	}
-	r.hooks.onInserted(ctx, items, &err)
 	return
 }
 
@@ -390,12 +345,11 @@ func (r *Resource) Update(ctx context.Context, item *Item, original *Item) (err 
 			})
 		}(time.Now())
 	}
-	if err = r.hooks.onUpdate(ctx, item, original); err == nil {
-		if err = recalcEtag([]*Item{item}); err == nil {
-			err = r.storage.Update(ctx, item, original)
-		}
+	var newItem *Item
+	newItem, err = r.middlewares.onUpdateThen(ctx, item, original)
+	if err == nil {
+		*item = *newItem
 	}
-	r.hooks.onUpdated(ctx, item, original, &err)
 	return
 }
 
@@ -409,10 +363,11 @@ func (r *Resource) Delete(ctx context.Context, item *Item) (err error) {
 			})
 		}(time.Now())
 	}
-	if err = r.hooks.onDelete(ctx, item); err == nil {
-		err = r.storage.Delete(ctx, item)
+	var newItem *Item
+	newItem, err = r.middlewares.onDeleteThen(ctx, item)
+	if err == nil {
+		*item = *newItem
 	}
-	r.hooks.onDeleted(ctx, item, &err)
 	return
 }
 
@@ -427,9 +382,6 @@ func (r *Resource) Clear(ctx context.Context, q *query.Query) (deleted int, err 
 			})
 		}(time.Now())
 	}
-	if err = r.hooks.onClear(ctx, q); err == nil {
-		deleted, err = r.storage.Clear(ctx, q)
-	}
-	r.hooks.onCleared(ctx, q, &deleted, &err)
+	deleted, err = r.middlewares.onClearThen(ctx, q)
 	return
 }
