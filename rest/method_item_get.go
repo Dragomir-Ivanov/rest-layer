@@ -4,8 +4,6 @@ import (
 	"context"
 	"net/http"
 	"time"
-
-	"github.com/rs/rest-layer/schema/query"
 )
 
 // itemGet handles GET and HEAD resquests on an item URL.
@@ -15,15 +13,13 @@ func itemGet(ctx context.Context, r *http.Request, route *RouteMatch) (status in
 		return e.Code, nil, e
 	}
 	rsrc := route.Resource()
-	q.Window = &query.Window{Limit: 1}
-	list, err := rsrc.Find(ctx, q)
+	item, err := rsrc.Get(ctx, route.ResourceID())
 	if err != nil {
 		e, code := NewError(err)
 		return code, nil, e
-	} else if len(list.Items) == 0 {
+	} else if item == nil {
 		return ErrNotFound.Code, nil, ErrNotFound
 	}
-	item := list.Items[0]
 	// Handle conditional request: If-None-Match.
 	if compareEtag(r.Header.Get("If-None-Match"), item.ETag) {
 		return 304, nil, nil
