@@ -3,7 +3,7 @@ package rest
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -29,7 +29,7 @@ func itemPatch(ctx context.Context, r *http.Request, route *RouteMatch) (status 
 	isJSONPatch := isJSONPatch(r)
 	if isJSONPatch {
 		if r.Body != nil {
-			patchJSON, _ = ioutil.ReadAll(r.Body)
+			patchJSON, _ = io.ReadAll(r.Body)
 			r.Body.Close()
 		}
 	} else {
