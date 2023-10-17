@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const ISO8601Layout = "2006-01-02T15:04:05.999999999-07:00"
+
 var (
 	// Now is a field hook handler that returns the current time, to be used in
 	// schema with OnInit and OnUpdate.
@@ -36,6 +38,7 @@ var (
 	}
 
 	formats = []string{
+		ISO8601Layout,
 		time.RFC3339,
 		time.RFC3339Nano,
 		time.ANSIC,
