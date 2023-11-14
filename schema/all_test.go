@@ -139,7 +139,7 @@ func (tc fieldSerializerTestCase) Run(t *testing.T) {
 			if err != nil {
 				t.Errorf("Serializer.Serialize(%v): unexpected error: %v", tc.ReferenceChecker, err)
 			}
-			if s != tc.Expect {
+			if !reflect.DeepEqual(s, tc.Expect) {
 				t.Errorf("Serializer.Serialize(%v): expected: %v, got: %v", tc.Input, tc.Expect, s)
 			}
 		} else {
