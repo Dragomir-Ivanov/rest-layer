@@ -39,3 +39,27 @@ func (v Object) Validate(value interface{}) (interface{}, error) {
 func (v Object) GetField(name string) *Field {
 	return v.Schema.GetField(name)
 }
+
+func (v Object) Serialize(value interface{}) (interface{}, error) {
+	if value == nil {
+		return nil, nil
+	}
+
+	obj, ok := value.(map[string]interface{})
+	if !ok {
+		return nil, errors.New("not an object")
+	}
+
+	for name, val := range obj {
+		field := v.Schema.GetField(name)
+		s, ok := field.Validator.(FieldSerializer)
+		if ok {
+			var err error
+			obj[name], err = s.Serialize(val)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return obj, nil
+}

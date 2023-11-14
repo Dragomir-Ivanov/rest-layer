@@ -111,3 +111,68 @@ func TestObjectValidatorErrorType(t *testing.T) {
 	_, err := v.Validate(obj)
 	assert.IsType(t, schema.ErrorMap{}, err, "Unexpected error type")
 }
+
+func TestObjectSerialize(t *testing.T) {
+	cases := []fieldSerializerTestCase{
+		{
+			Name: "null",
+			Serializer: schema.Object{Schema: &schema.Schema{
+				Fields: schema.Fields{
+					"field1": {Validator: &schema.String{}},
+					"field2": {Validator: &schema.IP{StoreBinary: true}},
+				},
+			}},
+			Input:  nil,
+			Expect: nil,
+			Error:  "",
+		},
+		{
+			Name: "empty",
+			Serializer: schema.Object{Schema: &schema.Schema{
+				Fields: schema.Fields{
+					"field1": {Validator: &schema.String{}},
+					"field2": {Validator: &schema.IP{StoreBinary: true}},
+				},
+			}},
+			Input:  map[string]interface{}{},
+			Expect: map[string]interface{}{},
+			Error:  "",
+		},
+		{
+			Name: "field with Serializer",
+			Serializer: schema.Object{Schema: &schema.Schema{
+				Fields: schema.Fields{
+					"field1": {Validator: &schema.String{}},
+					"field2": {Validator: &schema.IP{StoreBinary: true}},
+				},
+			}},
+			Input: map[string]interface{}{
+				"field1": "foo",
+				"field2": []byte{1, 2, 3, 4},
+			},
+			Expect: map[string]interface{}{
+				"field1": "foo",
+				"field2": "1.2.3.4",
+			},
+			Error: "",
+		},
+		{
+			Name: "field with Serializer error",
+			Serializer: schema.Object{Schema: &schema.Schema{
+				Fields: schema.Fields{
+					"field1": {Validator: &schema.String{}},
+					"field2": {Validator: &schema.IP{StoreBinary: true}},
+				},
+			}},
+			Input: map[string]interface{}{
+				"field1": "foo",
+				"field2": 11,
+			},
+			Expect: nil,
+			Error:  "invalid type",
+		},
+	}
+	for i := range cases {
+		cases[i].Run(t)
+	}
+}

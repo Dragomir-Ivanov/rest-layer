@@ -1,3 +1,4 @@
+//go:build go1.7
 // +build go1.7
 
 package schema_test
@@ -154,5 +155,63 @@ func TestArrayQueryValidator(t *testing.T) {
 	}
 	for i := range testCases {
 		testCases[i].Run(t)
+	}
+}
+
+func TestArraySerialize(t *testing.T) {
+	cases := []fieldSerializerTestCase{
+		{
+			Name:       "null",
+			Serializer: schema.Array{Values: schema.Field{Validator: &schema.IP{StoreBinary: true}}},
+			Input:      nil,
+			Expect:     nil,
+			Error:      "",
+		},
+		{
+			Name:       "empty",
+			Serializer: schema.Array{Values: schema.Field{Validator: &schema.IP{StoreBinary: true}}},
+			Input:      []interface{}{},
+			Expect:     []interface{}{},
+			Error:      "",
+		},
+		{
+			Name:       "field without Serializer",
+			Serializer: schema.Array{Values: schema.Field{Validator: &schema.String{}}},
+			Input: []interface{}{
+				"foo",
+				"bar",
+			},
+			Expect: []interface{}{
+				"foo",
+				"bar",
+			},
+			Error: "",
+		},
+		{
+			Name:       "field with Serializer",
+			Serializer: schema.Array{Values: schema.Field{Validator: &schema.IP{StoreBinary: true}}},
+			Input: []interface{}{
+				[]byte{1, 2, 3, 4},
+				[]byte{5, 6, 7, 8},
+			},
+			Expect: []interface{}{
+				"1.2.3.4",
+				"5.6.7.8",
+			},
+			Error: "",
+		},
+		{
+			Name:       "field with Serializer error",
+			Serializer: schema.Array{Values: schema.Field{Validator: &schema.IP{StoreBinary: true}}},
+			Input: []interface{}{
+				11,
+				[]byte{5, 6, 7, 8},
+			},
+			Expect: nil,
+			Error:  "invalid type",
+		},
+	}
+	for i := range cases {
+		cases[i].Run(t)
 	}
 }

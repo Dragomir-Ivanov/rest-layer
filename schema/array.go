@@ -92,3 +92,27 @@ func (v Array) GetField(name string) *Field {
 	}
 	return &v.Values
 }
+
+func (v Array) Serialize(value interface{}) (interface{}, error) {
+	if value == nil {
+		return nil, nil
+	}
+
+	obj, ok := value.([]interface{})
+	if !ok {
+		return nil, errors.New("not an array")
+	}
+
+	for i, val := range obj {
+		s, ok := v.Values.Validator.(FieldSerializer)
+		if ok {
+			var err error
+			obj[i], err = s.Serialize(val)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return obj, nil
+}
