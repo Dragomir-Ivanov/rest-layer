@@ -12,7 +12,6 @@ import (
 )
 
 // requestTest is a reusable type for testing POST, PUT, PATCH or GET requests. Best used in a map, E.g.:
-//     go
 type requestTest struct {
 	Init           func() *requestTestVars
 	NewRequest     func() (*http.Request, error)
@@ -26,8 +25,9 @@ type requestCheckerFunc func(*testing.T, *requestTestVars)
 
 // requestTestVars provodes test runtime variables.
 type requestTestVars struct {
-	Index   resource.Index             // required
-	Storers map[string]resource.Storer // optional: may be used by ExtraTest function
+	Index       resource.Index             // required
+	Storers     map[string]resource.Storer // optional: may be used by ExtraTest function
+	CalledHooks *map[string]bool
 }
 
 // Test runs tt in parallel mode. It can be passed as a second parameter to

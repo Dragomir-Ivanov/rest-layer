@@ -10,6 +10,7 @@ import (
 	"github.com/rs/rest-layer/resource"
 	"github.com/rs/rest-layer/resource/testing/mem"
 	"github.com/rs/rest-layer/schema"
+	"github.com/rs/rest-layer/schema/query"
 )
 
 func TestGetItem(t *testing.T) {
@@ -299,4 +300,105 @@ func TestHandlerGetItemNoStorage(t *testing.T) {
 		ResponseBody: `{"code": 501, "message": "No Storage Defined"}`,
 	}
 	tc.Test(t)
+}
+
+type Hook struct {
+	Called map[string]bool
+}
+
+func (h *Hook) OnGet(ctx context.Context, id interface{}) error {
+	h.Called["OnGet"] = true
+	return nil
+}
+func (h *Hook) OnFind(ctx context.Context, q *query.Query) error {
+	h.Called["OnFind"] = true
+	return nil
+}
+
+func TestHandlerGetHook(t *testing.T) {
+	tests := map[string]requestTest{
+		"hooks:trigger - OnGet": {
+			Init: func() *requestTestVars {
+				s := mem.NewHandler()
+				s.Insert(context.TODO(), []*resource.Item{
+					{ID: "1", Payload: map[string]interface{}{"id": "1", "foo": "bar"}},
+				})
+
+				idx := resource.NewIndex()
+				foo := idx.Bind("foo", schema.Schema{
+					Fields: schema.Fields{
+						"id":  {Filterable: true},
+						"foo": {Filterable: true},
+					},
+				}, s, resource.DefaultConf)
+
+				hook := &Hook{
+					Called: make(map[string]bool),
+				}
+				foo.Use(hook)
+
+				return &requestTestVars{
+					Index:       idx,
+					CalledHooks: &hook.Called,
+				}
+			},
+			NewRequest: func() (*http.Request, error) {
+				return http.NewRequest("GET", "/foo/1", nil)
+			},
+			ResponseCode: http.StatusOK,
+			ResponseBody: `{"id": "1", "foo": "bar"}`,
+			ExtraTest: func(t *testing.T, v *requestTestVars) {
+				if !(*v.CalledHooks)["OnGet"] {
+					t.Errorf("Expected OnGet to be called")
+				}
+				if (*v.CalledHooks)["OnFind"] {
+					t.Errorf("Expected OnFind not to be called")
+				}
+			},
+		},
+		"hooks:trigger - OnFind": {
+			Init: func() *requestTestVars {
+				s := mem.NewHandler()
+				s.Insert(context.TODO(), []*resource.Item{
+					{ID: "1", Payload: map[string]interface{}{"id": "1", "foo": "bar"}},
+				})
+
+				idx := resource.NewIndex()
+				foo := idx.Bind("foo", schema.Schema{
+					Fields: schema.Fields{
+						"id":  {Filterable: true},
+						"foo": {Filterable: true},
+					},
+				}, s, resource.DefaultConf)
+
+				hook := &Hook{
+					Called: make(map[string]bool),
+				}
+				foo.Use(hook)
+
+				return &requestTestVars{
+					Index:       idx,
+					CalledHooks: &hook.Called,
+				}
+			},
+			NewRequest: func() (*http.Request, error) {
+				return http.NewRequest("GET", `/foo/1?filter={foo:"bar"}`, nil)
+			},
+			ResponseCode: http.StatusOK,
+			ResponseBody: `{"id": "1", "foo": "bar"}`,
+			ExtraTest: func(t *testing.T, v *requestTestVars) {
+				if (*v.CalledHooks)["OnGet"] {
+					t.Errorf("Expected OnGet not to be called")
+				}
+				if !(*v.CalledHooks)["OnFind"] {
+					t.Errorf("Expected OnFind to be called")
+				}
+			},
+		},
+	}
+
+	for n, tc := range tests {
+		tc := tc // capture range variable
+		t.Run(n, tc.Test)
+	}
 }
