@@ -238,7 +238,7 @@ func evalProjection(ctx context.Context, p Projection, payload map[string]interf
 						if subvalp, err = evalProjectionArray(ctx, pf, payload, &array.Values, rbr, rsc); err != nil {
 							return nil, fmt.Errorf("%s: error applying projection on array item #%d: %v", pf.Name, i, err)
 						}
-						if res[name], err = resolveFieldHandler(ctx, pf, &array.Values, subvalp); err != nil {
+						if res[name], err = resolveFieldHandler(ctx, pf, def, subvalp); err != nil {
 							return nil, fmt.Errorf("%s: error resolving field handler on array: %v", name, err)
 						}
 					} else {
