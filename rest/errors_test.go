@@ -10,15 +10,46 @@ import (
 )
 
 func TestNewError(t *testing.T) {
-	assert.Equal(t, ErrClientClosedRequest, NewError(context.Canceled))
-	assert.Equal(t, ErrGatewayTimeout, NewError(context.DeadlineExceeded))
-	assert.Equal(t, ErrForbidden, NewError(resource.ErrForbidden))
-	assert.Equal(t, ErrNotFound, NewError(resource.ErrNotFound))
-	assert.Equal(t, ErrConflict, NewError(resource.ErrConflict))
-	assert.Equal(t, ErrNotImplemented, NewError(resource.ErrNotImplemented))
-	assert.Nil(t, NewError(nil))
-	assert.Equal(t, &Error{520, "test", nil}, NewError(errors.New("test")))
-	assert.Equal(t, ErrNotFound, NewError(ErrNotFound))
+	{
+		e, code := NewError(context.Canceled)
+		assert.Equal(t, e, ErrClientClosedRequest)
+		assert.Equal(t, code, ErrClientClosedRequest.Code)
+	}
+	{
+		e, code := NewError(context.DeadlineExceeded)
+		assert.Equal(t, e, ErrGatewayTimeout)
+		assert.Equal(t, code, ErrGatewayTimeout.Code)
+	}
+	{
+		e, code := NewError(resource.ErrForbidden)
+		assert.Equal(t, e, ErrForbidden)
+		assert.Equal(t, code, ErrForbidden.Code)
+	}
+	{
+		e, code := NewError(resource.ErrConflict)
+		assert.Equal(t, e, ErrConflict)
+		assert.Equal(t, code, ErrConflict.Code)
+	}
+	{
+		e, code := NewError(resource.ErrNotImplemented)
+		assert.Equal(t, e, ErrNotImplemented)
+		assert.Equal(t, code, ErrNotImplemented.Code)
+	}
+	{
+		e, code := NewError(nil)
+		assert.Nil(t, e)
+		assert.Equal(t, code, 0)
+	}
+	{
+		e, code := NewError(errors.New("test"))
+		assert.Equal(t, e.Error(), "test")
+		assert.Equal(t, code, 520)
+	}
+	{
+		e, code := NewError(resource.ErrNotFound)
+		assert.Equal(t, e, ErrNotFound)
+		assert.Equal(t, code, ErrNotFound.Code)
+	}
 }
 
 func TestError(t *testing.T) {
