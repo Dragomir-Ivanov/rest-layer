@@ -328,6 +328,24 @@ func (r *Resource) find(ctx context.Context, q *query.Query, forceTotal bool) (l
 	return
 }
 
+type ReducerFunc func(item *Item) error
+
+// Reduce calls the Reduce method on the storage handler with the corresponding without hooks.
+// Reduce does not return `Total` number of items. You need to call `Count` method to get it.
+func (r *Resource) Reduce(ctx context.Context, q *query.Query, reducer ReducerFunc) (err error) {
+	if LoggerLevel <= LogLevelDebug && Logger != nil {
+		defer func(t time.Time) {
+			Logger(ctx, LogLevelDebug, fmt.Sprintf("%s.Reduce(...)", r.path), map[string]interface{}{
+				"duration": time.Since(t),
+				"error":    err,
+			})
+		}(time.Now())
+	}
+	err = r.middlewares.onReduceThen(ctx, q, reducer)
+	return
+
+}
+
 // Insert implements Storer interface.
 func (r *Resource) Insert(ctx context.Context, items []*Item) (err error) {
 	if LoggerLevel <= LogLevelDebug && Logger != nil {

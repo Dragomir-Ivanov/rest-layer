@@ -12,6 +12,7 @@ import (
 
 type testStorer struct {
 	find   func(ctx context.Context, q *query.Query) (*ItemList, error)
+	reduce func(ctx context.Context, q *query.Query, reducer ReducerFunc) error
 	insert func(ctx context.Context, items []*Item) error
 	update func(ctx context.Context, item *Item, original *Item) error
 	delete func(ctx context.Context, item *Item) error
@@ -25,6 +26,9 @@ type testMStorer struct {
 
 func (s testStorer) Find(ctx context.Context, q *query.Query) (*ItemList, error) {
 	return s.find(ctx, q)
+}
+func (s testStorer) Reduce(ctx context.Context, q *query.Query, reducer ReducerFunc) error {
+	return s.reduce(ctx, q, reducer)
 }
 func (s testStorer) Insert(ctx context.Context, items []*Item) error {
 	return s.insert(ctx, items)
@@ -46,6 +50,9 @@ func newTestStorer() *testStorer {
 	return &testStorer{
 		find: func(ctx context.Context, q *query.Query) (*ItemList, error) {
 			return &ItemList{}, nil
+		},
+		reduce: func(ctx context.Context, q *query.Query, reducer ReducerFunc) error {
+			return nil
 		},
 		insert: func(ctx context.Context, items []*Item) error {
 			return nil
@@ -469,6 +476,38 @@ func TestResourceFindPostHookError(t *testing.T) {
 	assert.True(t, preHook)
 	assert.True(t, handler)
 	assert.True(t, postHook)
+}
+
+/*
+ * Reduce
+ */
+
+func TestResourceReduce(t *testing.T) {
+	var handler, reducerFunc, itemGot bool
+	i := NewIndex()
+	s := newTestMStorer()
+	s.reduce = func(ctx context.Context, q *query.Query, reducer ReducerFunc) error {
+		handler = true
+		return reducer(&Item{ID: 1})
+	}
+	r := i.Bind("foo", schema.Schema{}, s, DefaultConf)
+	ctx := context.Background()
+	err := r.Reduce(ctx, &query.Query{}, func(item *Item) error {
+		reducerFunc = true
+		if item != nil && item.ID == 1 {
+			itemGot = true
+		}
+		return nil
+	})
+	assert.NoError(t, err)
+	assert.True(t, handler)
+	assert.True(t, reducerFunc)
+	assert.True(t, itemGot)
+
+	err = r.Reduce(ctx, &query.Query{}, func(item *Item) error {
+		return errors.New("reducer error")
+	})
+	assert.EqualError(t, err, "reducer error")
 }
 
 /*

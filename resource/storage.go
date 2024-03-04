@@ -107,10 +107,20 @@ type Counter interface {
 	Count(ctx context.Context, q *query.Query) (int, error)
 }
 
+// Reducer is an optional interface a Storer can implement to provide a way to
+// reduce the result of a query. This method is not exported to REST, and
+// is only used internally, when number of result elements are too high,
+// and they make severy memory presure on the system. Reducer main purpose is
+// report generation.
+type Reducer interface {
+	Reduce(ctx context.Context, q *query.Query, reducer ReducerFunc) error
+}
+
 type storageHandler interface {
 	Storer
 	MultiGetter
 	Counter
+	Reducer
 	Get(ctx context.Context, id interface{}) (item *Item, err error)
 }
 
@@ -209,6 +219,17 @@ func (s storageWrapper) Find(ctx context.Context, q *query.Query) (list *ItemLis
 		}
 	}
 	return s.Storer.Find(ctx, q)
+}
+
+// Reduce tries to use storer Reduce with some pattern.
+func (s storageWrapper) Reduce(ctx context.Context, q *query.Query, reducer ReducerFunc) error {
+	if s.Storer == nil {
+		return ErrNoStorage
+	}
+	if r, ok := s.Storer.(Reducer); ok {
+		return r.Reduce(ctx, q, reducer)
+	}
+	return ErrNotImplemented
 }
 
 // wrapMgetList wraps a MultiGet response into a resource.ItemList response.

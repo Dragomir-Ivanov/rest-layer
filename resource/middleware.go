@@ -16,6 +16,9 @@ type OnMultiGetMiddleware func(next OnMultiGetMiddlewareHandler) OnMultiGetMiddl
 type OnFindMiddlewareHandler func(ctx context.Context, q *query.Query, forceTotal bool) (*ItemList, error)
 type OnFindMiddleware func(next OnFindMiddlewareHandler) OnFindMiddlewareHandler
 
+type OnReduceMiddlewareHandler func(ctx context.Context, q *query.Query, reducer ReducerFunc) error
+type OnReduceMiddleware func(next OnReduceMiddlewareHandler) OnReduceMiddlewareHandler
+
 type OnInsertMiddlewareHandler func(ctx context.Context, items []*Item) ([]*Item, error)
 type OnInsertMiddleware func(next OnInsertMiddlewareHandler) OnInsertMiddlewareHandler
 
@@ -31,6 +34,7 @@ type OnClearMiddleware func(next OnClearMiddlewareHandler) OnClearMiddlewareHand
 type middlewareHandlers struct {
 	onGetC    []OnGetMiddleware
 	onFindC   []OnFindMiddleware
+	onReduceC []OnReduceMiddleware
 	onInsertC []OnInsertMiddleware
 	onUpdateC []OnUpdateMiddleware
 	onDeleteC []OnDeleteMiddleware
@@ -39,6 +43,7 @@ type middlewareHandlers struct {
 	onGetThen      OnGetMiddlewareHandler
 	onMultiGetThen OnMultiGetMiddlewareHandler
 	onFindThen     OnFindMiddlewareHandler
+	onReduceThen   OnReduceMiddlewareHandler
 	onInsertThen   OnInsertMiddlewareHandler
 	onUpdateThen   OnUpdateMiddlewareHandler
 	onDeleteThen   OnDeleteMiddlewareHandler
@@ -66,6 +71,13 @@ func (r *Resource) Chain(middlewares ...interface{}) {
 			r.middlewares.onFindThen = onFindMiddlewareDefault(r)
 			for i := len(r.middlewares.onFindC) - 1; i >= 0; i-- {
 				r.middlewares.onFindThen = r.middlewares.onFindC[i](r.middlewares.onFindThen)
+			}
+
+		case OnReduceMiddleware:
+			r.middlewares.onReduceC = append(r.middlewares.onReduceC, m)
+			r.middlewares.onReduceThen = onReduceMiddlewareDefault(r)
+			for i := len(r.middlewares.onReduceC) - 1; i >= 0; i-- {
+				r.middlewares.onReduceThen = r.middlewares.onReduceC[i](r.middlewares.onReduceThen)
 			}
 
 		case OnInsertMiddleware:
@@ -106,6 +118,7 @@ func initMiddlewares(r *Resource) {
 	r.middlewares.onGetThen = onGetMiddlewareDefault(r)
 	r.middlewares.onMultiGetThen = onMultiGetMiddlewareDefault(r)
 	r.middlewares.onFindThen = onFindMiddlewareDefault(r)
+	r.middlewares.onReduceThen = onReduceMiddlewareDefault(r)
 	r.middlewares.onInsertThen = onInsertMiddlewareDefault(r)
 	r.middlewares.onUpdateThen = onUpdateMiddlewareDefault(r)
 	r.middlewares.onDeleteThen = onDeleteMiddlewareDefault(r)
@@ -177,6 +190,15 @@ func onFindMiddlewareDefault(r *Resource) OnFindMiddlewareHandler {
 		}
 		r.hooks.onFound(ctx, q, &list, &err)
 		return
+	}
+}
+
+func onReduceMiddlewareDefault(r *Resource) OnReduceMiddlewareHandler {
+	return func(ctx context.Context, q *query.Query, reducer ReducerFunc) error {
+		// Since Reduce is a read only operation, and needs to be fast,
+		// we don't call any hooks. Any modification on the data, needs to be
+		// done in the reducer function.
+		return r.storage.Reduce(ctx, q, reducer)
 	}
 }
 
