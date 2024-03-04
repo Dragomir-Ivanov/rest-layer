@@ -248,9 +248,10 @@ func TestPutItem(t *testing.T) {
 				r.Header.Set("If-Match", "W/b")
 				return r, nil
 			},
-			ResponseCode: http.StatusOK,
-			ResponseBody: `{"id": "2", "foo": "baz"}`,
-			ExtraTest:    checkPayload("foo", "2", map[string]interface{}{"id": "2", "foo": "baz"}),
+			ResponseCode:   http.StatusOK,
+			ResponseBody:   `{"id": "2", "foo": "baz"}`,
+			ResponseHeader: http.Header{"Etag": []string{`W/"b89c2acfea8a49933a3387f0e3fb0527"`}},
+			ExtraTest:      checkPayload("foo", "2", map[string]interface{}{"id": "2", "foo": "baz"}),
 		},
 		`pathID:found,body:valid,header["If-Unmodified-Since"]:invalid`: {
 			Init: sharedInit,

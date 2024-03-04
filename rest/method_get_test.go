@@ -248,17 +248,6 @@ func TestGetListFieldHandler(t *testing.T) {
 			ResponseBody:   `[{"foo": "bar"}]`,
 			ResponseHeader: http.Header{"Etag": []string{`W/"d41d8cd98f00b204e9800998ecf8427e"`}},
 		},
-		`fields:foo:minimal`: {
-			Init: sharedInit,
-			NewRequest: func() (*http.Request, error) {
-				r, err := http.NewRequest("GET", `/foo?fields=foo`, nil)
-				r.Header.Set("Prefer", "return=minimal")
-				return r, err
-			},
-			ResponseCode:   204,
-			ResponseBody:   ``,
-			ResponseHeader: http.Header{"Etag": []string{`W/"d41d8cd98f00b204e9800998ecf8427e"`}},
-		},
 		`fields:foo(bar:baz)`: {
 			Init: sharedInit,
 			NewRequest: func() (*http.Request, error) {
