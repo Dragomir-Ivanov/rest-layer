@@ -14,5 +14,5 @@ func (v Null) Validate(value interface{}) (interface{}, error) {
 		return value, nil
 	}
 
-	return value, errors.New("not null")
+	return nil, errors.New("not null")
 }
