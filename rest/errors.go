@@ -71,7 +71,7 @@ func NewError(err error) (error, int) {
 	case nil:
 		return nil, 0
 	default:
-		return err, 520
+		return &Error{520, err.Error(), nil}, 520
 	}
 }
 
