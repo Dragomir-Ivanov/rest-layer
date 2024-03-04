@@ -23,6 +23,8 @@ type ResourcePathComponent struct {
 	Value interface{}
 	// Resource references the resource
 	Resource *resource.Resource
+	// Command holds the command to execute on the resource
+	Command resource.Command
 }
 
 var resourcePathComponentPool = sync.Pool{
@@ -50,7 +52,7 @@ func (p *ResourcePath) Prepend(rsrc *resource.Resource, field string, value inte
 	*p = append(ResourcePath{rp}, *p...)
 }
 
-func (p *ResourcePath) append(rsrc *resource.Resource, field string, value interface{}, name string) (err error) {
+func (p *ResourcePath) append(rsrc *resource.Resource, field string, value interface{}, name string, command resource.Command) (err error) {
 	if field != "" && value != nil {
 		if f, found := rsrc.Schema().Fields["id"]; found {
 			if f.Validator != nil {
@@ -66,6 +68,7 @@ func (p *ResourcePath) append(rsrc *resource.Resource, field string, value inter
 	rp.Field = field
 	rp.Value = value
 	rp.Resource = rsrc
+	rp.Command = command
 	*p = append(*p, rp)
 	return
 }

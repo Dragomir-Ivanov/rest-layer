@@ -107,13 +107,13 @@ func TestResourcePathAppend(t *testing.T) {
 		},
 	}, mem.NewHandler(), resource.DefaultConf)
 	p := ResourcePath{}
-	err := p.append(users, "user", 123, "users")
+	err := p.append(users, "user", 123, "users", nil)
 	assert.EqualError(t, err, "not a string")
-	err = p.append(users, "user", "john", "users")
+	err = p.append(users, "user", "john", "users", nil)
 	assert.NoError(t, err)
-	err = p.append(posts, "id", "123", "posts")
+	err = p.append(posts, "id", "123", "posts", nil)
 	assert.EqualError(t, err, "not an integer")
-	err = p.append(posts, "id", 123, "posts")
+	err = p.append(posts, "id", 123, "posts", nil)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string]interface{}{"id": 123, "user": "john"}, p.Values())
 

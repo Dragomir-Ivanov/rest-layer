@@ -3,6 +3,7 @@ package rest
 import (
 	"context"
 	"errors"
+	"net/http"
 	"net/url"
 	"reflect"
 	"sync"
@@ -272,5 +273,33 @@ func TestRouteQueryFilter(t *testing.T) {
 	}
 	if !reflect.DeepEqual(q, want) {
 		t.Errorf("RouteMatch.Query = %+v, want %+v", q, want)
+	}
+}
+
+func TestRouteCommand(t *testing.T) {
+	var route *RouteMatch
+	var err error
+	index := resource.NewIndex()
+	i, _ := resource.NewItem(map[string]interface{}{"id": "1234"})
+	h := &mockHandler{[]*resource.Item{i}, nil, []query.Query{}, sync.Mutex{}}
+	foo := index.Bind("foo", schema.Schema{}, h, resource.DefaultConf)
+	cmd := func(ctx context.Context, r *http.Request, item *resource.Item, payload map[string]interface{}) (http.Header, *resource.Item, map[string]interface{}, error) {
+		return nil, nil, nil, nil
+	}
+	foo.Command("command", cmd)
+
+	route = newRoute("PUT")
+	err = findRoute("/foo/1234/command", index, route)
+	if assert.Nil(t, err) {
+		assert.Equal(t, foo, route.Resource())
+		assert.Equal(t, url.Values{}, route.Params)
+		assert.Equal(t, "1234", route.ResourceID())
+		rp := route.ResourcePath
+		if assert.Len(t, rp, 1) {
+			assert.Equal(t, "foo", rp[0].Name)
+			assert.Equal(t, "id", rp[0].Field)
+			assert.Equal(t, "1234", rp[0].Value)
+			assert.NotNil(t, rp[0].Command)
+		}
 	}
 }

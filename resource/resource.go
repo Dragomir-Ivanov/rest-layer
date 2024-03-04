@@ -3,7 +3,9 @@ package resource
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
 	"time"
 
@@ -24,8 +26,10 @@ type Resource struct {
 	aliases     map[string]url.Values
 	hooks       eventHandler
 	middlewares middlewareHandlers
+	commands    map[string]Command
 }
 
+type Command func(ctx context.Context, r *http.Request, item *Item, payload map[string]interface{}) (http.Header, *Item, map[string]interface{}, error)
 type subResources []*Resource
 
 // get gets a sub resource by its name.
@@ -82,6 +86,7 @@ func newResource(name string, s schema.Schema, h Storer, c Conf) *Resource {
 		conf:      c,
 		resources: subResources{},
 		aliases:   map[string]url.Values{},
+		commands:  map[string]Command{},
 	}
 	initMiddlewares(r)
 	return r
@@ -210,6 +215,30 @@ func (r *Resource) GetAliases() []string {
 	n := make([]string, 0, len(r.aliases))
 	for a := range r.aliases {
 		n = append(n, a)
+	}
+	return n
+}
+
+func (r *Resource) Command(name string, command Command) {
+	// allow only A-Z,a-z,0-9, _ and - in command name. Panic if not
+	matched, _ := regexp.MatchString(`^[A-Za-z0-9_\-]+$`, name)
+	if !matched {
+		logPanicf(context.Background(), "Invalid command name: %s for resource %s", name, r.name)
+	}
+
+	assertNotBound(name, r.resources, r.aliases)
+	r.commands[name] = command
+}
+
+func (r *Resource) GetCommand(name string) (Command, bool) {
+	c, found := r.commands[name]
+	return c, found
+}
+
+func (r *Resource) GetCommands() []Command {
+	n := make([]Command, 0, len(r.commands))
+	for _, c := range r.commands {
+		n = append(n, c)
 	}
 	return n
 }

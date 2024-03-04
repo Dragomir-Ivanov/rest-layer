@@ -10,6 +10,7 @@ import (
 
 	"github.com/rs/rest-layer/resource"
 	"github.com/rs/rest-layer/resource/testing/mem"
+	"github.com/rs/rest-layer/rest"
 	"github.com/rs/rest-layer/schema"
 	"github.com/rs/rest-layer/schema/query"
 )
@@ -655,6 +656,225 @@ func TestPutItemReadOnly(t *testing.T) {
 			ResponseCode: http.StatusUnprocessableEntity,
 			ResponseBody: `{"code":422,"issues":{"tar":["read-only"]},"message":"Document contains error(s)"}`,
 			ExtraTest:    checkPayload("foo", "3", map[string]interface{}{"id": "3", "foo": "odd", "tar": timeOld}),
+		},
+	}
+
+	for n, tc := range tests {
+		tc := tc // capture range variable
+		t.Run(n, tc.Test)
+	}
+}
+
+func TestCommandPanic(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+
+	s1 := mem.NewHandler()
+	idx := resource.NewIndex()
+	fooRes := idx.Bind("foo", schema.Schema{
+		Fields: schema.Fields{
+			"id":  {Sortable: true, Filterable: true},
+			"foo": {Filterable: true},
+			"zar": {ReadOnly: true},
+			"tar": {ReadOnly: true, Validator: &schema.Time{}},
+		},
+	}, s1, resource.DefaultConf)
+
+	fooRes.Command("command.dd", func(ctx context.Context, r *http.Request, item *resource.Item, payload map[string]interface{}) (http.Header, *resource.Item, map[string]interface{}, error) {
+		response := map[string]interface{}{
+			"bar": "baz",
+		}
+		return http.Header{}, item, response, nil
+	})
+}
+
+func TestPutItemCommand(t *testing.T) {
+	sharedInit := func() *requestTestVars {
+		s1 := mem.NewHandler()
+		s1.Insert(context.Background(), []*resource.Item{
+			{ID: "1", ETag: "a", Payload: map[string]interface{}{"id": "1", "foo": "odd"}},
+			{ID: "2", ETag: "b", Payload: map[string]interface{}{"id": "2", "foo": "odd", "zar": "old"}},
+		})
+
+		idx := resource.NewIndex()
+		fooRes := idx.Bind("foo", schema.Schema{
+			Fields: schema.Fields{
+				"id":  {Sortable: true, Filterable: true},
+				"foo": {Filterable: true},
+				"zar": {ReadOnly: true},
+				"tar": {ReadOnly: true, Validator: &schema.Time{}},
+			},
+		}, s1, resource.DefaultConf)
+
+		fooRes.Command("command", func(ctx context.Context, r *http.Request, item *resource.Item, payload map[string]interface{}) (http.Header, *resource.Item, map[string]interface{}, error) {
+			response := map[string]interface{}{
+				"bar": "baz",
+			}
+			return http.Header{}, item, response, nil
+		})
+		fooRes.Command("command1", func(ctx context.Context, r *http.Request, item *resource.Item, body map[string]interface{}) (http.Header, *resource.Item, map[string]interface{}, error) {
+			response := map[string]interface{}{
+				"bar": "baz",
+			}
+			item.Payload["foo"] = body["foo"]
+			return http.Header{}, item, response, nil
+		})
+		fooRes.Command("command2", func(ctx context.Context, r *http.Request, item *resource.Item, body map[string]interface{}) (http.Header, *resource.Item, map[string]interface{}, error) {
+			return http.Header{}, nil, nil, &rest.Error{
+				Code:    http.StatusUnprocessableEntity,
+				Message: "command2 error",
+			}
+		})
+		fooRes.Command("command3", func(ctx context.Context, r *http.Request, item *resource.Item, payload map[string]interface{}) (http.Header, *resource.Item, map[string]interface{}, error) {
+			response := map[string]interface{}{
+				"bar": "baz",
+			}
+			headers := http.Header{}
+			headers.Set("X-Test", "test")
+			return headers, item, response, nil
+		})
+		return &requestTestVars{
+			Index:   idx,
+			Storers: map[string]resource.Storer{"foo": s1},
+		}
+	}
+
+	tests := map[string]requestTest{
+		`put:command:no change`: {
+			Init: sharedInit,
+			NewRequest: func() (*http.Request, error) {
+				body := bytes.NewReader([]byte(`{"foo": "baz", "zar":"old"}`))
+				return http.NewRequest("PUT", `/foo/1/command`, body)
+			},
+			ResponseCode: http.StatusOK,
+			ResponseBody: `{"item":{"foo":"odd","id":"1"},"response":{"bar":"baz"}}`,
+			ExtraTest:    checkPayload("foo", "1", map[string]interface{}{"id": "1", "foo": "odd"}),
+		},
+		`put:command:no change, minimal`: {
+			Init: sharedInit,
+			NewRequest: func() (*http.Request, error) {
+				body := bytes.NewReader([]byte(`{"foo": "baz", "zar":"old"}`))
+				r, err := http.NewRequest("PUT", `/foo/1/command`, body)
+				r.Header.Set("Prefer", "return=minimal")
+				return r, err
+			},
+			ResponseCode: http.StatusOK,
+			ResponseBody: `{"response":{"bar":"baz"}}`,
+			ExtraTest:    checkPayload("foo", "1", map[string]interface{}{"id": "1", "foo": "odd"}),
+		},
+
+		`put:command:no change, Etag match`: {
+			Init: sharedInit,
+			NewRequest: func() (*http.Request, error) {
+				body := bytes.NewReader([]byte(`{"foo": "baz", "zar":"old"}`))
+				r, err := http.NewRequest("PUT", `/foo/1/command`, body)
+				if err != nil {
+					return nil, err
+				}
+				r.Header.Set("If-Match", "W/a")
+				return r, err
+			},
+			ResponseCode:   http.StatusOK,
+			ResponseBody:   `{"item":{"foo":"odd","id":"1"},"response":{"bar":"baz"}}`,
+			ResponseHeader: http.Header{"Etag": []string{`W/"a"`}},
+			ExtraTest:      checkPayload("foo", "1", map[string]interface{}{"id": "1", "foo": "odd"}),
+		},
+		`put:command:no change, Etag mismatch`: {
+			Init: sharedInit,
+			NewRequest: func() (*http.Request, error) {
+				body := bytes.NewReader([]byte(`{"foo": "baz", "zar":"old"}`))
+				r, err := http.NewRequest("PUT", `/foo/1/command`, body)
+				if err != nil {
+					return nil, err
+				}
+				r.Header.Set("If-Match", "W/x")
+				return r, err
+			},
+			ResponseCode: http.StatusPreconditionFailed,
+			ResponseBody: `{"code":412,"message":"Precondition Failed"}`,
+		},
+		`put:command:change`: {
+			Init: sharedInit,
+			NewRequest: func() (*http.Request, error) {
+				body := bytes.NewReader([]byte(`{"foo": "new", "zar":"old"}`))
+				r, err := http.NewRequest("PUT", `/foo/2/command1`, body)
+				if err != nil {
+					return nil, err
+				}
+				return r, err
+			},
+			ResponseCode:   http.StatusOK,
+			ResponseBody:   `{"item":{"foo":"new","id":"2","zar":"old"},"response":{"bar":"baz"}}`,
+			ResponseHeader: http.Header{"Etag": []string{`W/"368239abd86ad0b268d9572a8db8c9f6"`}},
+			ExtraTest:      checkPayload("foo", "2", map[string]interface{}{"id": "2", "foo": "new", "zar": "old"}),
+		},
+		`put:command:change, Etag match`: {
+			Init: sharedInit,
+			NewRequest: func() (*http.Request, error) {
+				body := bytes.NewReader([]byte(`{"foo": "new", "zar":"old"}`))
+				r, err := http.NewRequest("PUT", `/foo/2/command1`, body)
+				if err != nil {
+					return nil, err
+				}
+				r.Header.Set("If-Match", "W/b")
+				return r, err
+			},
+			ResponseCode:   http.StatusOK,
+			ResponseBody:   `{"item":{"foo":"new","id":"2","zar":"old"},"response":{"bar":"baz"}}`,
+			ResponseHeader: http.Header{"Etag": []string{`W/"368239abd86ad0b268d9572a8db8c9f6"`}},
+			ExtraTest:      checkPayload("foo", "2", map[string]interface{}{"id": "2", "foo": "new", "zar": "old"}),
+		},
+		`put:command:change, Etag mismatch`: {
+			Init: sharedInit,
+			NewRequest: func() (*http.Request, error) {
+				body := bytes.NewReader([]byte(`{"foo": "baz", "zar":"old"}`))
+				r, err := http.NewRequest("PUT", `/foo/2/command1`, body)
+				if err != nil {
+					return nil, err
+				}
+				r.Header.Set("If-Match", "W/x")
+				return r, err
+			},
+			ResponseCode: http.StatusPreconditionFailed,
+			ResponseBody: `{"code":412,"message":"Precondition Failed"}`,
+			ExtraTest:    checkPayload("foo", "2", map[string]interface{}{"id": "2", "foo": "odd", "zar": "old"}),
+		},
+		`put:command:change, error`: {
+			Init: sharedInit,
+			NewRequest: func() (*http.Request, error) {
+				body := bytes.NewReader([]byte(`{"foo": "baz", "zar":"old"}`))
+				r, err := http.NewRequest("PUT", `/foo/2/command2`, body)
+				if err != nil {
+					return nil, err
+				}
+				r.Header.Set("If-Match", "W/b")
+				return r, err
+			},
+			ResponseCode: http.StatusUnprocessableEntity,
+			ResponseBody: `{"code":422,"message":"command2 error"}`,
+			ExtraTest:    checkPayload("foo", "2", map[string]interface{}{"id": "2", "foo": "odd", "zar": "old"}),
+		},
+		`put:command:change, header`: {
+			Init: sharedInit,
+			NewRequest: func() (*http.Request, error) {
+				body := bytes.NewReader([]byte(`{"foo": "baz", "zar":"old"}`))
+				r, err := http.NewRequest("PUT", `/foo/2/command3`, body)
+				if err != nil {
+					return nil, err
+				}
+				r.Header.Set("If-Match", "W/b")
+				return r, err
+			},
+			ResponseCode: http.StatusOK,
+			ResponseBody: `{"item":{"foo":"odd","id":"2","zar":"old"},"response":{"bar":"baz"}}`,
+			ResponseHeader: http.Header{
+				"X-Test": []string{"test"},
+				"Etag":   []string{`W/"b"`},
+			},
+			ExtraTest: checkPayload("foo", "2", map[string]interface{}{"id": "2", "foo": "odd", "zar": "old"}),
 		},
 	}
 

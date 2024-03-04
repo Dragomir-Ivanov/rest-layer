@@ -99,11 +99,15 @@ func findRoute(path string, index resource.Index, route *RouteMatch) error {
 
 			// Handle sub-resources (/resource1/id1/resource2/id2).
 			if len(path) >= 1 {
+				if c, found := rsrc.GetCommand(path); found {
+					return route.ResourcePath.append(rsrc, "id", id, name, c)
+				}
+
 				subPathComp, _ := nextPathComponent(path)
 				subResourcePath := resourcePath + "." + subPathComp
 				if subResource, found := index.GetResource(subResourcePath, nil); found {
 					// Append the intermediate resource path.
-					if err := route.ResourcePath.append(rsrc, subResource.ParentField(), id, name); err != nil {
+					if err := route.ResourcePath.append(rsrc, subResource.ParentField(), id, name, nil); err != nil {
 						return err
 					}
 					// Recurse to match the sub-path.
@@ -127,11 +131,11 @@ func findRoute(path string, index resource.Index, route *RouteMatch) error {
 				}
 			} else {
 				// Set the id route field.
-				return route.ResourcePath.append(rsrc, "id", id, name)
+				return route.ResourcePath.append(rsrc, "id", id, name, nil)
 			}
 		}
 		// Set the collection resource.
-		return route.ResourcePath.append(rsrc, "", nil, name)
+		return route.ResourcePath.append(rsrc, "", nil, name, nil)
 	}
 	route.ResourcePath.clear()
 	return errResourceNotFound
@@ -164,6 +168,15 @@ func (r *RouteMatch) Resource() *resource.Resource {
 		return nil
 	}
 	return (r.ResourcePath)[l-1].Resource
+}
+
+// Command returns the last resource path's command if any.
+func (r *RouteMatch) Command() resource.Command {
+	l := len(r.ResourcePath)
+	if l == 0 {
+		return nil
+	}
+	return (r.ResourcePath)[l-1].Command
 }
 
 // ResourceID returns the last resource path's resource id value if any.
