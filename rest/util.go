@@ -165,14 +165,14 @@ func checkIntegrityRequest(r *http.Request, original *resource.Item) *Error {
 			return ErrNotFound
 		}
 		if ifMatch != "" && !compareEtag(ifMatch, original.ETag) {
-			return ErrConflict
+			return ErrPreconditionFailed
 		}
 		if ifUnmod != "" {
 			if ifUnmodTime, err := time.Parse(time.RFC1123, ifUnmod); err != nil {
 				return &Error{400, "Invalid If-Unmodified-Since header", nil}
 			} else if original.Updated.Truncate(time.Second).After(ifUnmodTime) {
 				// Item's update time is truncated to the second because RFC1123 doesn't support more
-				return ErrConflict
+				return ErrPreconditionFailed
 			}
 		}
 	}
