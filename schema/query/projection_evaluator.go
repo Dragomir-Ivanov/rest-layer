@@ -86,9 +86,6 @@ func prepareProjection(p Projection, payload map[string]interface{}) (Projection
 
 func evalProjectionArray(ctx context.Context, pf ProjectionField, payload []interface{}, def *schema.Field, rbr *referenceBatchResolver, rsc Resource) (*[]interface{}, error) {
 	res := make([]interface{}, 0, len(payload))
-	// Return pointer to res, because it may be populated after this function ends, by referenceBatchResolver
-	// in `schema.Reference` case
-	resp := &res
 	resMu := sync.Mutex{}
 
 	validator := def.Validator
@@ -167,7 +164,9 @@ func evalProjectionArray(ctx context.Context, pf ProjectionField, payload []inte
 		return nil, fmt.Errorf("%s. unknown field type", pf.Name)
 	}
 
-	return resp, nil
+	// Return pointer to res, because it may be populated after this function ends, by referenceBatchResolver
+	// in `schema.Reference` case
+	return &res, nil
 }
 
 func evalProjection(ctx context.Context, p Projection, payload map[string]interface{}, fg schema.FieldGetter, rbr *referenceBatchResolver, rsc Resource) (map[string]interface{}, error) {
