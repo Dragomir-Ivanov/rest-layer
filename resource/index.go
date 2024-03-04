@@ -109,7 +109,7 @@ type refChecker struct {
 }
 
 // ReferenceChecker implements the schema.ReferenceChecker interface.
-func (rc refChecker) ReferenceChecker(path string) (schema.FieldValidator, schema.Validator) {
+func (rc refChecker) ReferenceChecker(path string, skipCheck bool) (schema.FieldValidator, schema.Validator) {
 	rsc, exists := rc.index.GetResource(path, nil)
 	if !exists {
 		return nil, nil
@@ -129,10 +129,12 @@ func (rc refChecker) ReferenceChecker(path string) (schema.FieldValidator, schem
 			id = value
 		}
 
-		//_, err = rsc.Get(context.TODO(), id)
-		//if err != nil {
-		//		return nil, err
-		//	}
+		if !skipCheck {
+			_, err = rsc.Get(context.TODO(), id)
+			if err != nil {
+				return nil, err
+			}
+		}
 		return id, nil
 	}), rsc.Validator()
 }

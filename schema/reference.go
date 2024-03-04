@@ -10,6 +10,7 @@ type Reference struct {
 	Path            string
 	validator       FieldValidator
 	SchemaValidator Validator
+	SkipCheck       bool
 }
 
 // Compile validates v.Path against rc and stores the a FieldValidator for later use by v.Validate.
@@ -18,7 +19,7 @@ func (r *Reference) Compile(rc ReferenceChecker) error {
 		return fmt.Errorf("rc can not be nil")
 	}
 
-	if v, sv := rc.ReferenceChecker(r.Path); v != nil && sv != nil {
+	if v, sv := rc.ReferenceChecker(r.Path, r.SkipCheck); v != nil && sv != nil {
 		r.validator = v
 		r.SchemaValidator = sv
 		return nil

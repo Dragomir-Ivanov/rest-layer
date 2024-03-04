@@ -173,7 +173,7 @@ func (rc fakeReferenceChecker) Compile() error {
 	return nil
 }
 
-func (rc fakeReferenceChecker) ReferenceChecker(path string) (schema.FieldValidator, schema.Validator) {
+func (rc fakeReferenceChecker) ReferenceChecker(path string, skipCheck bool) (schema.FieldValidator, schema.Validator) {
 	rsc, ok := rc[path]
 	if !ok {
 		return nil, nil
@@ -191,10 +191,13 @@ func (rc fakeReferenceChecker) ReferenceChecker(path string) (schema.FieldValida
 		} else {
 			id = value
 		}
-		// Check that the ID exists.
-		for _, rscID := range rsc.IDs {
-			if id == rscID {
-				return id, nil
+
+		if !skipCheck {
+			// Check that the ID exists.
+			for _, rscID := range rsc.IDs {
+				if id == rscID {
+					return id, nil
+				}
 			}
 		}
 		return nil, errors.New("not found")

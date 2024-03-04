@@ -222,6 +222,23 @@ func TestHandlerPostList(t *testing.T) {
 				"issues": {"foo": ["Not Found"]}
 			}`,
 		},
+		"WithReferenceSkipCheck": {
+			Init: func() *requestTestVars {
+				s := mem.NewHandler()
+				index := resource.NewIndex()
+				index.Bind("foo", schema.Schema{Fields: schema.Fields{"id": {}}}, s, resource.DefaultConf)
+				index.Bind("bar", schema.Schema{Fields: schema.Fields{
+					"id":  {},
+					"foo": {Validator: &schema.Reference{Path: "foo", SkipCheck: true}},
+				}}, s, resource.DefaultConf)
+				return &requestTestVars{Index: index}
+			},
+			NewRequest: func() (*http.Request, error) {
+				return http.NewRequest("POST", "/bar", bytes.NewBufferString(`{"id": "1", "foo": "nonexisting"}`))
+			},
+			ResponseCode: http.StatusCreated,
+			ResponseBody: `{"foo":"nonexisting","id":"1"}`,
+		},
 		"WithReferenceNoStorage": {
 			// FIXME: For NoStorage, it's probably better to error early (during Bind).
 			Init: func() *requestTestVars {
