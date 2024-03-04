@@ -52,6 +52,9 @@ func (v Object) Serialize(value interface{}) (interface{}, error) {
 
 	for name, val := range obj {
 		field := v.Schema.GetField(name)
+		if field == nil {
+			continue
+		}
 		s, ok := field.Validator.(FieldSerializer)
 		if ok {
 			var err error
