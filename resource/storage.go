@@ -226,6 +226,9 @@ func (s storageWrapper) Reduce(ctx context.Context, q *query.Query, reducer Redu
 	if s.Storer == nil {
 		return ErrNoStorage
 	}
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
 	if r, ok := s.Storer.(Reducer); ok {
 		return r.Reduce(ctx, q, reducer)
 	}

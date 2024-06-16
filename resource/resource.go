@@ -328,7 +328,7 @@ func (r *Resource) find(ctx context.Context, q *query.Query, forceTotal bool) (l
 	return
 }
 
-type ReducerFunc func(item *Item) error
+type ReducerFunc = func(item *Item) error
 
 // Reduce calls the Reduce method on the storage handler with the corresponding without hooks.
 // Reduce does not return `Total` number of items. You need to call `Count` method to get it.
@@ -430,5 +430,20 @@ func (r *Resource) Clear(ctx context.Context, q *query.Query) (deleted int, err 
 		}(time.Now())
 	}
 	deleted, err = r.middlewares.onClearThen(ctx, q)
+	return
+}
+
+// Count implements Counter interface.
+func (r *Resource) Count(ctx context.Context, q *query.Query) (total int, err error) {
+	if LoggerLevel <= LogLevelDebug && Logger != nil {
+		defer func(t time.Time) {
+			Logger(ctx, LogLevelDebug, fmt.Sprintf("%s.Clear(%v)", r.path, q), map[string]interface{}{
+				"duration": time.Since(t),
+				"total":    total,
+				"error":    err,
+			})
+		}(time.Now())
+	}
+	total, err = r.storage.Count(ctx, q)
 	return
 }
